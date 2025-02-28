@@ -8,7 +8,7 @@ from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import create_react_agent
 
-from core.config import GEMINI_API_KEY
+from pokemon.core.config import GEMINI_API_KEY
 from pokemon.agents.researcher import ResearcherAgent
 from pokemon.agents.pokemon_expert import PokemonExpertAgent
 

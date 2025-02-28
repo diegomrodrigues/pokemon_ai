@@ -1,13 +1,13 @@
 import requests
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
-from core.config import GEMINI_API_KEY
 
 from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage
 
+from pokemon.core.config import GEMINI_API_KEY
 
 class PokemonInfo(BaseModel):
     """Information about a Pokemon"""

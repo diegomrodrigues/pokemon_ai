@@ -1,6 +1,5 @@
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field
-from core.config import GEMINI_API_KEY
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -8,6 +7,7 @@ from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import tool
 
 from pokemon.agents.researcher import ResearcherAgent
+from pokemon.core.config import GEMINI_API_KEY
 
 
 class BattleAnalysisResult(BaseModel):
