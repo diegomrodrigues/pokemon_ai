@@ -3,11 +3,12 @@ from pydantic import BaseModel, Field
 import re
 
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import create_react_agent
 
+from core.config import GEMINI_API_KEY
 from pokemon.agents.researcher import ResearcherAgent
 from pokemon.agents.pokemon_expert import PokemonExpertAgent
 
@@ -44,7 +45,10 @@ class SupervisorAgent:
             model=model, 
             researcher_agent=self.researcher
         )
-        self.llm = ChatOpenAI(model=model)
+        self.llm = ChatGoogleGenerativeAI(
+            model=model,
+            api_key=GEMINI_API_KEY
+        )
         
         # Define tools the supervisor can use
         self.tools = [

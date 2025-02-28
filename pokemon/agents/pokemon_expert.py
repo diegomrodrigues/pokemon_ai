@@ -1,5 +1,6 @@
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field
+from core.config import GEMINI_API_KEY
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -23,7 +24,10 @@ class PokemonExpertAgent:
     
     def __init__(self, model: Optional[str] = "gemini-2.0-flash", researcher_agent: Optional[ResearcherAgent] = None):
         """Initialize the Pokémon Expert Agent with tools and a model."""
-        self.llm = ChatGoogleGenerativeAI(model=model)
+        self.llm = ChatGoogleGenerativeAI(
+            model=model,
+            api_key=GEMINI_API_KEY
+        )
         self.researcher = researcher_agent or ResearcherAgent()
         
         # Define tools the expert can use

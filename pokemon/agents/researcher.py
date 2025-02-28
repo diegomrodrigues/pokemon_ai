@@ -1,6 +1,7 @@
 import requests
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
+from core.config import GEMINI_API_KEY
 
 from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -24,7 +25,10 @@ class ResearcherAgent:
     
     def __init__(self, model: Optional[str] = "gemini-2.0-flash"):
         """Initialize the researcher agent with tools for interacting with the PokéAPI."""
-        self.llm = ChatGoogleGenerativeAI(model=model)
+        self.llm = ChatGoogleGenerativeAI(
+            model=model,
+            api_key=GEMINI_API_KEY
+        )
         self.tools = [
             self.get_pokemon_data,
             self.compare_pokemon
