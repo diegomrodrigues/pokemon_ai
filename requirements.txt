@@ -6,7 +6,7 @@ pydantic
 # LangChain and related packages
 langchain
 langchain-core
-langchain-google-genai
+langchain-anthropic
 langgraph
 
 # HTTP and API tools

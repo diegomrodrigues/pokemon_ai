@@ -1,13 +1,13 @@
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel, Field
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage
+from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import tool
 
 from pokemon.agents.researcher import ResearcherAgent
-from pokemon.core.config import GEMINI_API_KEY
+from pokemon.core.config import ANTHROPIC_API_KEY
 
 
 class BattleAnalysisResult(BaseModel):
@@ -22,12 +22,11 @@ class PokemonExpertAgent:
     Uses LangGraph for structured reasoning.
     """
     
-    def __init__(self, model: Optional[str] = "gemini-2.0-flash", researcher_agent: Optional[ResearcherAgent] = None):
+    def __init__(self, model: Optional[str] = "claude-3-5-haiku-20241022", researcher_agent: Optional[ResearcherAgent] = None):
         """Initialize the Pokémon Expert Agent with tools and a model."""
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = ChatAnthropic(
             model=model,
-            google_api_key=GEMINI_API_KEY,
-            api_key=GEMINI_API_KEY
+            api_key=ANTHROPIC_API_KEY
         )
         self.researcher = researcher_agent or ResearcherAgent()
         

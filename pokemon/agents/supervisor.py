@@ -1,14 +1,13 @@
-from typing import Dict, List, Any, Optional, TypedDict, Annotated, Literal
-from pydantic import BaseModel, Field
+from typing import Dict, List, Any, Optional, TypedDict, Literal
 import re
 
-from langchain_core.messages import HumanMessage, AIMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage
+from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import create_react_agent
 
-from pokemon.core.config import GEMINI_API_KEY
+from pokemon.core.config import ANTHROPIC_API_KEY
 from pokemon.agents.researcher import ResearcherAgent
 from pokemon.agents.pokemon_expert import PokemonExpertAgent
 
@@ -37,7 +36,7 @@ class SupervisorAgent:
         self, 
         researcher_agent: Optional[ResearcherAgent] = None,
         expert_agent: Optional[PokemonExpertAgent] = None,
-        model: Optional[str] = "gemini-2.0-flash"
+        model: Optional[str] = "claude-3-5-haiku-20241022"
     ):
         """Initialize the Supervisor Agent with specialized agents and tools."""
         self.researcher = researcher_agent or ResearcherAgent(model=model)
@@ -45,10 +44,9 @@ class SupervisorAgent:
             model=model, 
             researcher_agent=self.researcher
         )
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = ChatAnthropic(
             model=model,
-            google_api_key=GEMINI_API_KEY,
-            api_key=GEMINI_API_KEY
+            api_key=ANTHROPIC_API_KEY
         )
         
         # Define tools the supervisor can use

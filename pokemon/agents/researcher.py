@@ -3,11 +3,11 @@ from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 
 from langchain_core.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import HumanMessage
 
-from pokemon.core.config import GEMINI_API_KEY
+from pokemon.core.config import ANTHROPIC_API_KEY
 
 class PokemonInfo(BaseModel):
     """Information about a Pokemon"""
@@ -23,12 +23,11 @@ class PokemonInfo(BaseModel):
 class ResearcherAgent:
     BASE_URL = "https://pokeapi.co/api/v2/pokemon/"
     
-    def __init__(self, model: Optional[str] = "gemini-2.0-flash"):
+    def __init__(self, model: Optional[str] = "claude-3-5-haiku-20241022"):
         """Initialize the researcher agent with tools for interacting with the PokéAPI."""
-        self.llm = ChatGoogleGenerativeAI(
+        self.llm = ChatAnthropic(
             model=model,
-            google_api_key=GEMINI_API_KEY,
-            api_key=GEMINI_API_KEY
+            api_key=ANTHROPIC_API_KEY
         )
         self.tools = [
             self.get_pokemon_data,
