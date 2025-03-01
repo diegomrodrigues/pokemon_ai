@@ -26,6 +26,7 @@ class PokemonExpertAgent:
         """Initialize the Pokémon Expert Agent with tools and a model."""
         self.llm = ChatGoogleGenerativeAI(
             model=model,
+            google_api_key=GEMINI_API_KEY,
             api_key=GEMINI_API_KEY
         )
         self.researcher = researcher_agent or ResearcherAgent()

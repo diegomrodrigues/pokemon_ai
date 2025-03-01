@@ -47,6 +47,7 @@ class SupervisorAgent:
         )
         self.llm = ChatGoogleGenerativeAI(
             model=model,
+            google_api_key=GEMINI_API_KEY,
             api_key=GEMINI_API_KEY
         )
         

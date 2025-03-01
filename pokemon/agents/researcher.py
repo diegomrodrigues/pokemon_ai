@@ -27,6 +27,7 @@ class ResearcherAgent:
         """Initialize the researcher agent with tools for interacting with the PokéAPI."""
         self.llm = ChatGoogleGenerativeAI(
             model=model,
+            google_api_key=GEMINI_API_KEY,
             api_key=GEMINI_API_KEY
         )
         self.tools = [
