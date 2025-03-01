@@ -8,11 +8,191 @@ from langchain_core.tools import tool
 
 from pokemon.core.config import ANTHROPIC_API_KEY
 
-
 class BattleAnalysisResult(BaseModel):
     """Results of a Pokémon battle analysis"""
     winner: str = Field(description="The Pokémon predicted to win the battle")
     reasoning: str = Field(description="Detailed reasoning for the prediction")
+
+
+@tool
+def get_type_effectiveness(attacking_type: str, defending_types: List[str]) -> Dict[str, Any]:
+    """
+    Calculate type effectiveness multipliers for an attacking type against defending types.
+    
+    Args:
+        attacking_type: The type of the attack (e.g., "Electric", "Fire")
+        defending_types: List of the defending Pokémon's types (e.g., ["Grass", "Poison"])
+        
+    Returns:
+        A dictionary with effectiveness information
+    """
+    # Type effectiveness chart (simplified version)
+    effectiveness_chart = {
+        "normal": {"fighting": 2.0, "ghost": 0.0},
+        "fire": {"grass": 2.0, "ice": 2.0, "bug": 2.0, "steel": 2.0, 
+                "fire": 0.5, "water": 0.5, "rock": 0.5, "dragon": 0.5},
+        "water": {"fire": 2.0, "ground": 2.0, "rock": 2.0,
+                 "water": 0.5, "grass": 0.5, "dragon": 0.5},
+        "electric": {"water": 2.0, "flying": 2.0, 
+                    "electric": 0.5, "grass": 0.5, "dragon": 0.5, 
+                    "ground": 0.0},
+        "grass": {"water": 2.0, "ground": 2.0, "rock": 2.0,
+                 "fire": 0.5, "grass": 0.5, "poison": 0.5, "flying": 0.5, 
+                 "bug": 0.5, "dragon": 0.5, "steel": 0.5},
+        "ice": {"grass": 2.0, "ground": 2.0, "flying": 2.0, "dragon": 2.0,
+               "fire": 0.5, "water": 0.5, "ice": 0.5, "steel": 0.5},
+        "fighting": {"normal": 2.0, "ice": 2.0, "rock": 2.0, "dark": 2.0, "steel": 2.0,
+                    "poison": 0.5, "flying": 0.5, "psychic": 0.5, "bug": 0.5, "fairy": 0.5,
+                    "ghost": 0.0},
+        "poison": {"grass": 2.0, "fairy": 2.0,
+                  "poison": 0.5, "ground": 0.5, "rock": 0.5, "ghost": 0.5,
+                  "steel": 0.0},
+        "ground": {"fire": 2.0, "electric": 2.0, "poison": 2.0, "rock": 2.0, "steel": 2.0,
+                  "grass": 0.5, "bug": 0.5,
+                  "flying": 0.0},
+        "flying": {"grass": 2.0, "fighting": 2.0, "bug": 2.0,
+                  "electric": 0.5, "rock": 0.5, "steel": 0.5},
+        "psychic": {"fighting": 2.0, "poison": 2.0,
+                   "psychic": 0.5, "steel": 0.5,
+                   "dark": 0.0},
+        "bug": {"grass": 2.0, "psychic": 2.0, "dark": 2.0,
+               "fire": 0.5, "fighting": 0.5, "poison": 0.5, "flying": 0.5, 
+               "ghost": 0.5, "steel": 0.5, "fairy": 0.5},
+        "rock": {"fire": 2.0, "ice": 2.0, "flying": 2.0, "bug": 2.0,
+                "fighting": 0.5, "ground": 0.5, "steel": 0.5},
+        "ghost": {"psychic": 2.0, "ghost": 2.0,
+                 "dark": 0.5,
+                 "normal": 0.0},
+        "dragon": {"dragon": 2.0,
+                  "steel": 0.5,
+                  "fairy": 0.0},
+        "dark": {"psychic": 2.0, "ghost": 2.0,
+                "fighting": 0.5, "dark": 0.5, "fairy": 0.5},
+        "steel": {"ice": 2.0, "rock": 2.0, "fairy": 2.0,
+                 "fire": 0.5, "water": 0.5, "electric": 0.5, "steel": 0.5},
+        "fairy": {"fighting": 2.0, "dragon": 2.0, "dark": 2.0,
+                 "fire": 0.5, "poison": 0.5, "steel": 0.5}
+    }
+    
+    # Normalize input
+    attacking_type = attacking_type.lower()
+    defending_types = [dt.lower() for dt in defending_types]
+    
+    # Calculate effectiveness
+    multiplier = 1.0
+    for defending_type in defending_types:
+        if defending_type in effectiveness_chart.get(attacking_type, {}):
+            multiplier *= effectiveness_chart[attacking_type][defending_type]
+    
+    effectiveness = "neutral"
+    if multiplier > 1.0:
+        effectiveness = "super effective"
+    elif multiplier < 1.0 and multiplier > 0.0:
+        effectiveness = "not very effective"
+    elif multiplier == 0.0:
+        effectiveness = "no effect"
+    
+    return {
+        "attacking_type": attacking_type.capitalize(),
+        "defending_types": [dt.capitalize() for dt in defending_types],
+        "multiplier": multiplier,
+        "effectiveness": effectiveness
+    }
+
+@tool
+def analyze_stats_comparison(stats1: Dict[str, int], stats2: Dict[str, int]) -> Dict[str, Any]:
+    """
+    Compare the base stats of two Pokémon and determine advantages.
+    
+    Args:
+        stats1: Dictionary of the first Pokémon's stats
+        stats2: Dictionary of the second Pokémon's stats
+        
+    Returns:
+        Analysis of the stat comparison
+    """
+    # Calculate total base stats
+    total1 = sum(stats1.values())
+    total2 = sum(stats2.values())
+    
+    # Determine stat advantages for each Pokémon
+    advantages1 = []
+    advantages2 = []
+    
+    for stat in stats1:
+        if stat in stats2:
+            if stats1[stat] > stats2[stat]:
+                advantages1.append(stat)
+            elif stats2[stat] > stats1[stat]:
+                advantages2.append(stat)
+    
+    # Speed is often crucial in battles
+    speed_advantage = None
+    if "speed" in stats1 and "speed" in stats2:
+        if stats1["speed"] > stats2["speed"]:
+            speed_advantage = "pokemon1"
+        elif stats2["speed"] > stats1["speed"]:
+            speed_advantage = "pokemon2"
+    
+    return {
+        "pokemon1_total": total1,
+        "pokemon2_total": total2,
+        "pokemon1_advantages": advantages1,
+        "pokemon2_advantages": advantages2,
+        "pokemon1_higher_total": total1 > total2,
+        "pokemon2_higher_total": total2 > total1,
+        "speed_advantage": speed_advantage
+    }
+
+    
+@tool
+def compare_pokemon_data(pokemon1_name: str, pokemon2_name: str) -> Dict[str, Any]:
+    """
+    Get and compare complete data for two Pokémon using the Researcher Agent.
+    
+    Args:
+        pokemon1_name: Name of the first Pokémon
+        pokemon2_name: Name of the second Pokémon
+        
+    Returns:
+        Comprehensive comparison data
+    """
+    from pokemon.agents.researcher import get_pokemon_data
+
+    # Get data for both Pokémon (using the imported researcher function)
+    pokemon1_data = get_pokemon_data(pokemon1_name)
+    pokemon2_data = get_pokemon_data(pokemon2_name)
+    
+    # Check if either Pokémon wasn't found
+    if isinstance(pokemon1_data, str) and "not found" in pokemon1_data:
+        return {"error": f"Pokémon '{pokemon1_name}' not found"}
+    if isinstance(pokemon2_data, str) and "not found" in pokemon2_data:
+        return {"error": f"Pokémon '{pokemon2_name}' not found"}
+    
+    # Calculate type effectiveness in both directions
+    type_effectiveness = {}
+    if "types" in pokemon1_data and "types" in pokemon2_data:
+        # Pokémon 1's attacks against Pokémon 2
+        for attack_type in pokemon1_data["types"]:
+            effect = get_type_effectiveness(attack_type, pokemon2_data["types"])
+            type_effectiveness[f"{pokemon1_data['name']}_{attack_type}_vs_{pokemon2_data['name']}"] = effect
+        
+        # Pokémon 2's attacks against Pokémon 1
+        for attack_type in pokemon2_data["types"]:
+            effect = get_type_effectiveness(attack_type, pokemon1_data["types"])
+            type_effectiveness[f"{pokemon2_data['name']}_{attack_type}_vs_{pokemon1_data['name']}"] = effect
+    
+    # Compare stats
+    stats_comparison = {}
+    if "stats" in pokemon1_data and "stats" in pokemon2_data:
+        stats_comparison = analyze_stats_comparison(pokemon1_data["stats"], pokemon2_data["stats"])
+    
+    return {
+        "pokemon1": pokemon1_data,
+        "pokemon2": pokemon2_data,
+        "type_effectiveness": type_effectiveness,
+        "stats_comparison": stats_comparison
+    }
 
 
 class PokemonExpertAgent:
@@ -22,23 +202,19 @@ class PokemonExpertAgent:
     """
     
     def __init__(self, 
-        model: Optional[str] = "claude-3-5-haiku-20241022", 
-        researcher_agent: Optional['ResearcherAgent'] = None # type: ignore
+        model: Optional[str] = "claude-3-5-haiku-20241022"
     ):
         """Initialize the Pokémon Expert Agent with tools and a model."""
-        from pokemon.agents.researcher import ResearcherAgent
-
         self.llm = ChatAnthropic(
             model=model,
             api_key=ANTHROPIC_API_KEY
         )
-        self.researcher = researcher_agent or ResearcherAgent()
         
         # Define tools the expert can use
         self.tools = [
-            self.get_type_effectiveness,
-            self.analyze_stats_comparison,
-            self.compare_pokemon_data
+            get_type_effectiveness,
+            analyze_stats_comparison,
+            compare_pokemon_data
         ]
         
         # System message that provides context about the agent's purpose
@@ -80,183 +256,6 @@ class PokemonExpertAgent:
             self.tools,
             state_modifier=system_message
         )
-    
-    @tool
-    def get_type_effectiveness(self, attacking_type: str, defending_types: List[str]) -> Dict[str, Any]:
-        """
-        Calculate type effectiveness multipliers for an attacking type against defending types.
-        
-        Args:
-            attacking_type: The type of the attack (e.g., "Electric", "Fire")
-            defending_types: List of the defending Pokémon's types (e.g., ["Grass", "Poison"])
-            
-        Returns:
-            A dictionary with effectiveness information
-        """
-        # Type effectiveness chart (simplified version)
-        effectiveness_chart = {
-            "normal": {"fighting": 2.0, "ghost": 0.0},
-            "fire": {"grass": 2.0, "ice": 2.0, "bug": 2.0, "steel": 2.0, 
-                    "fire": 0.5, "water": 0.5, "rock": 0.5, "dragon": 0.5},
-            "water": {"fire": 2.0, "ground": 2.0, "rock": 2.0,
-                     "water": 0.5, "grass": 0.5, "dragon": 0.5},
-            "electric": {"water": 2.0, "flying": 2.0, 
-                        "electric": 0.5, "grass": 0.5, "dragon": 0.5, 
-                        "ground": 0.0},
-            "grass": {"water": 2.0, "ground": 2.0, "rock": 2.0,
-                     "fire": 0.5, "grass": 0.5, "poison": 0.5, "flying": 0.5, 
-                     "bug": 0.5, "dragon": 0.5, "steel": 0.5},
-            "ice": {"grass": 2.0, "ground": 2.0, "flying": 2.0, "dragon": 2.0,
-                   "fire": 0.5, "water": 0.5, "ice": 0.5, "steel": 0.5},
-            "fighting": {"normal": 2.0, "ice": 2.0, "rock": 2.0, "dark": 2.0, "steel": 2.0,
-                        "poison": 0.5, "flying": 0.5, "psychic": 0.5, "bug": 0.5, "fairy": 0.5,
-                        "ghost": 0.0},
-            "poison": {"grass": 2.0, "fairy": 2.0,
-                      "poison": 0.5, "ground": 0.5, "rock": 0.5, "ghost": 0.5,
-                      "steel": 0.0},
-            "ground": {"fire": 2.0, "electric": 2.0, "poison": 2.0, "rock": 2.0, "steel": 2.0,
-                      "grass": 0.5, "bug": 0.5,
-                      "flying": 0.0},
-            "flying": {"grass": 2.0, "fighting": 2.0, "bug": 2.0,
-                      "electric": 0.5, "rock": 0.5, "steel": 0.5},
-            "psychic": {"fighting": 2.0, "poison": 2.0,
-                       "psychic": 0.5, "steel": 0.5,
-                       "dark": 0.0},
-            "bug": {"grass": 2.0, "psychic": 2.0, "dark": 2.0,
-                   "fire": 0.5, "fighting": 0.5, "poison": 0.5, "flying": 0.5, 
-                   "ghost": 0.5, "steel": 0.5, "fairy": 0.5},
-            "rock": {"fire": 2.0, "ice": 2.0, "flying": 2.0, "bug": 2.0,
-                    "fighting": 0.5, "ground": 0.5, "steel": 0.5},
-            "ghost": {"psychic": 2.0, "ghost": 2.0,
-                     "dark": 0.5,
-                     "normal": 0.0},
-            "dragon": {"dragon": 2.0,
-                      "steel": 0.5,
-                      "fairy": 0.0},
-            "dark": {"psychic": 2.0, "ghost": 2.0,
-                    "fighting": 0.5, "dark": 0.5, "fairy": 0.5},
-            "steel": {"ice": 2.0, "rock": 2.0, "fairy": 2.0,
-                     "fire": 0.5, "water": 0.5, "electric": 0.5, "steel": 0.5},
-            "fairy": {"fighting": 2.0, "dragon": 2.0, "dark": 2.0,
-                     "fire": 0.5, "poison": 0.5, "steel": 0.5}
-        }
-        
-        # Normalize input
-        attacking_type = attacking_type.lower()
-        defending_types = [dt.lower() for dt in defending_types]
-        
-        # Calculate effectiveness
-        multiplier = 1.0
-        for defending_type in defending_types:
-            if defending_type in effectiveness_chart.get(attacking_type, {}):
-                multiplier *= effectiveness_chart[attacking_type][defending_type]
-        
-        effectiveness = "neutral"
-        if multiplier > 1.0:
-            effectiveness = "super effective"
-        elif multiplier < 1.0 and multiplier > 0.0:
-            effectiveness = "not very effective"
-        elif multiplier == 0.0:
-            effectiveness = "no effect"
-        
-        return {
-            "attacking_type": attacking_type.capitalize(),
-            "defending_types": [dt.capitalize() for dt in defending_types],
-            "multiplier": multiplier,
-            "effectiveness": effectiveness
-        }
-
-    @tool
-    def analyze_stats_comparison(self, stats1: Dict[str, int], stats2: Dict[str, int]) -> Dict[str, Any]:
-        """
-        Compare the base stats of two Pokémon and determine advantages.
-        
-        Args:
-            stats1: Dictionary of the first Pokémon's stats
-            stats2: Dictionary of the second Pokémon's stats
-            
-        Returns:
-            Analysis of the stat comparison
-        """
-        # Calculate total base stats
-        total1 = sum(stats1.values())
-        total2 = sum(stats2.values())
-        
-        # Determine stat advantages for each Pokémon
-        advantages1 = []
-        advantages2 = []
-        
-        for stat in stats1:
-            if stat in stats2:
-                if stats1[stat] > stats2[stat]:
-                    advantages1.append(stat)
-                elif stats2[stat] > stats1[stat]:
-                    advantages2.append(stat)
-        
-        # Speed is often crucial in battles
-        speed_advantage = None
-        if "speed" in stats1 and "speed" in stats2:
-            if stats1["speed"] > stats2["speed"]:
-                speed_advantage = "pokemon1"
-            elif stats2["speed"] > stats1["speed"]:
-                speed_advantage = "pokemon2"
-        
-        return {
-            "pokemon1_total": total1,
-            "pokemon2_total": total2,
-            "pokemon1_advantages": advantages1,
-            "pokemon2_advantages": advantages2,
-            "pokemon1_higher_total": total1 > total2,
-            "pokemon2_higher_total": total2 > total1,
-            "speed_advantage": speed_advantage
-        }
-
-    @tool
-    def compare_pokemon_data(self, pokemon1_name: str, pokemon2_name: str) -> Dict[str, Any]:
-        """
-        Get and compare complete data for two Pokémon using the Researcher Agent.
-        
-        Args:
-            pokemon1_name: Name of the first Pokémon
-            pokemon2_name: Name of the second Pokémon
-            
-        Returns:
-            Comprehensive comparison data
-        """
-        # Get data for both Pokémon
-        pokemon1_data = self.researcher.get_pokemon_data(pokemon1_name)
-        pokemon2_data = self.researcher.get_pokemon_data(pokemon2_name)
-        
-        # Check if either Pokémon wasn't found
-        if isinstance(pokemon1_data, str) and "not found" in pokemon1_data:
-            return {"error": f"Pokémon '{pokemon1_name}' not found"}
-        if isinstance(pokemon2_data, str) and "not found" in pokemon2_data:
-            return {"error": f"Pokémon '{pokemon2_name}' not found"}
-        
-        # Calculate type effectiveness in both directions
-        type_effectiveness = {}
-        if "types" in pokemon1_data and "types" in pokemon2_data:
-            # Pokémon 1's attacks against Pokémon 2
-            for attack_type in pokemon1_data["types"]:
-                effect = self.get_type_effectiveness(attack_type, pokemon2_data["types"])
-                type_effectiveness[f"{pokemon1_data['name']}_{attack_type}_vs_{pokemon2_data['name']}"] = effect
-            
-            # Pokémon 2's attacks against Pokémon 1
-            for attack_type in pokemon2_data["types"]:
-                effect = self.get_type_effectiveness(attack_type, pokemon1_data["types"])
-                type_effectiveness[f"{pokemon2_data['name']}_{attack_type}_vs_{pokemon1_data['name']}"] = effect
-        
-        # Compare stats
-        stats_comparison = {}
-        if "stats" in pokemon1_data and "stats" in pokemon2_data:
-            stats_comparison = self.analyze_stats_comparison(pokemon1_data["stats"], pokemon2_data["stats"])
-        
-        return {
-            "pokemon1": pokemon1_data,
-            "pokemon2": pokemon2_data,
-            "type_effectiveness": type_effectiveness,
-            "stats_comparison": stats_comparison
-        }
 
     def determine_winner(self, pokemon1: str, pokemon2: str) -> Dict[str, str]:
         """

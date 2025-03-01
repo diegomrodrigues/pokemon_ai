@@ -6,7 +6,6 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import create_react_agent
-from pydantic import BaseModel, Field
 
 from pokemon.core.config import ANTHROPIC_API_KEY
 
@@ -20,15 +19,6 @@ class AgentState(TypedDict):
     battle_result: Optional[Dict[str, str]]  # Battle result from expert
     final_answer: Optional[Dict[str, Any]]  # Final answer to return to user
 
-
-class CheckBattleInput(BaseModel):
-    question: str = Field(description="The user's question about a Pokemon battle")
-
-class CheckDataInput(BaseModel):
-    question: str = Field(description="The user's question about Pokemon data")
-
-class CheckQuestionInput(BaseModel):
-    question: str = Field(description="The user's question about Pokemon information")
 
 class SupervisorAgent:
     """
@@ -52,21 +42,14 @@ class SupervisorAgent:
 
         """Initialize the Supervisor Agent with specialized agents and tools."""
         self.researcher = researcher_agent or ResearcherAgent(model=model)
-        self.expert = expert_agent or PokemonExpertAgent(
-            model=model, 
-            researcher_agent=self.researcher
-        )
+        self.expert = expert_agent or PokemonExpertAgent(model=model)
         self.llm = ChatAnthropic(
             model=model,
             api_key=ANTHROPIC_API_KEY
         )
         
         # Define tools the supervisor can use
-        self.tools = [
-            self.check_pokemon_question,
-            self.check_pokemon_battle,
-            self.check_pokemon_data
-        ]
+        self.tools = []
         
         # System message for the supervisor agent
         system_message = """
@@ -77,7 +60,6 @@ class SupervisorAgent:
         2. It requires POKEMON DATA to be fetched from an external API
         3. It's asking about a POKEMON BATTLE between two Pokemon
         
-        Use the provided tools to determine the question category and route it appropriately.
         Be efficient and only use specialized agents when necessary.
         """
         
@@ -91,89 +73,35 @@ class SupervisorAgent:
         # Create the workflow graph
         self.workflow = self._create_workflow()
     
-    def _check_pokemon_question_impl(self, question: str) -> bool:
-        """Internal implementation to check if question is about Pokemon information."""
-        # Check for Pokemon-related keywords
-        pokemon_keywords = [
-            r'\bpokemon\b', r'\bpokedex\b', r'\bbase stats\b', r'\babilities\b',
-            r'\btypes?\b', r'\bmoves?\b', r'\bevolutions?\b', r'\bheight\b', r'\bweight\b'
-        ]
-        
-        # Look for Pokemon names or terms
-        for keyword in pokemon_keywords:
-            if re.search(keyword, question.lower()):
-                return True
-        
-        # Check for other Pokemon-specific queries
-        if "how tall is" in question.lower() or "how much does" in question.lower():
-            # These could be Pokemon-related queries about height or weight
-            return True
-            
-        return False
-    
-    @tool(args_schema=CheckQuestionInput)
-    def check_pokemon_question(self, input: CheckQuestionInput) -> bool:
-        """Determine if the question is related to Pokemon information."""
-        return self._check_pokemon_question_impl(input.question)
-    
     def _check_pokemon_battle_impl(self, question: str) -> bool:
-        """Internal implementation to check if question is about a Pokemon battle."""
-        # Check for battle-related keywords
-        battle_keywords = [
-            r'\bbattle\b', r'\bfight\b', r'\bwin\b', r'\blose\b', r'\bvs\.?\b',
-            r'\bversus\b', r'\bstronger\b', r'\bweaker\b', r'\beffective\b',
-            r'\badvantage\b', r'\bbeat\b'
-        ]
-        
-        # Check for "versus" pattern (X vs Y)
-        vs_pattern = r'(\w+)\s+(vs\.?|versus)\s+(\w+)'
-        
-        # Check for "who would win" pattern
-        win_pattern = r'who\s+would\s+(win|lose|be\s+stronger)'
-        
-        # Look for battle-related keywords
-        for keyword in battle_keywords:
-            if re.search(keyword, question.lower()):
-                return True
-                
-        # Check for versus pattern
-        if re.search(vs_pattern, question, re.IGNORECASE):
-            return True
-            
-        # Check for "who would win" pattern
-        if re.search(win_pattern, question.lower()):
-            return True
-            
-        return False
-    
-    @tool(args_schema=CheckBattleInput)
-    def check_pokemon_battle(self, input: CheckBattleInput) -> bool:
         """Determine if the question is about a Pokemon battle."""
-        return self._check_pokemon_battle_impl(input.question)
+        # Check for battle-related keywords
+        battle_keywords = ["battle", "fight", "versus", "vs", "win", "defeat"]
+        
+        # Check if the question mentions two Pokemon
+        has_battle_keywords = any(keyword in question.lower() for keyword in battle_keywords)
+        
+        return has_battle_keywords
+    
+    def _check_pokemon_question_impl(self, question: str) -> bool:
+        """Determine if the question is related to Pokemon information."""
+        # Check for question-related keywords
+        pokemon_keywords = ["pokemon", "pokedex", "ability", "type", "species"]
+        
+        # Check if the question is about Pokemon generally
+        has_pokemon_keywords = any(keyword in question.lower() for keyword in pokemon_keywords)
+        
+        return has_pokemon_keywords
     
     def _check_pokemon_data_impl(self, question: str) -> bool:
-        """Internal implementation to check if question is asking for Pokemon data."""
-        # Check for data retrieval patterns
-        data_patterns = [
-            r'what\s+(are|is)\s+the\s+(base\s+)?stats', 
-            r'what\s+type\s+is', 
-            r'how\s+tall\s+is', 
-            r'how\s+much\s+does.*weigh',
-            r'what\s+abilities\s+(does|do)',
-            r'(show|tell|give)\s+me\s+information\s+about'
-        ]
-        
-        # Look for data retrieval patterns
-        for pattern in data_patterns:
-            if re.search(pattern, question.lower()):
-                return True
-                
-        return False
-    
-    @tool(args_schema=CheckDataInput)
-    def check_pokemon_data(self, input: CheckDataInput) -> bool:
         """Determine if the question is asking for specific Pokemon data."""
-        return self._check_pokemon_data_impl(input.question)
+        # Check for data-related keywords
+        data_keywords = ["stats", "height", "weight", "type", "ability", "information", "details"]
+        
+        # Check if the question is requesting specific Pokemon data
+        has_data_keywords = any(keyword in question.lower() for keyword in data_keywords)
+        
+        return has_data_keywords
     
     def _extract_pokemon_names(self, question: str) -> List[str]:
         """
