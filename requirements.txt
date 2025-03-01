@@ -2,7 +2,6 @@
 fastapi
 uvicorn
 pydantic
-pyngrok
 
 # LangChain and related packages
 langchain
@@ -15,3 +14,9 @@ requests
 
 # Others
 python-dotenv
+
+# Testing
+pytest
+pytest-asyncio
+httpx
+pytest-mock
