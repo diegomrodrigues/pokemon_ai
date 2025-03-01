@@ -278,19 +278,27 @@ class PokemonExpertAgent:
         # Extract the final answer
         final_answer = response["messages"][-1].content
         
-        # Process the final answer to extract winner and reasoning
-        # This is a simple approach - in a real system you might want more structured parsing
-        # or prompt the LLM to return a more structured format
-        if pokemon1.lower() in final_answer.lower() and "win" in final_answer.lower():
-            winner = pokemon1
-        elif pokemon2.lower() in final_answer.lower() and "win" in final_answer.lower():
-            winner = pokemon2
-        else:
-            # If we can't clearly determine a winner from the text, default to the first one
-            # but note that the determination is unclear
-            winner = "can't determine who is the winner"
+        # Use structured output with the BattleAnalysisResult model to extract winner and reasoning
+        prompt = f"""
+        Based on the following battle analysis between {pokemon1} and {pokemon2}, determine the winner and provide the reasoning.
         
-        return {
-            "winner": winner,
-            "reasoning": final_answer
-        }
+        Battle Analysis:
+        {final_answer}
+        
+        Identify which Pokémon would win the battle and explain why.
+        """
+        
+        try:
+            # Use structured output to extract the winner and reasoning
+            structured_llm = self.llm.with_structured_output(BattleAnalysisResult)
+            result = structured_llm.invoke(prompt)
+            
+            return {
+                "winner": result.winner,
+                "reasoning": result.reasoning
+            }
+        except Exception:            
+            return {
+                "winner": "Unable to determine a clear winner",
+                "reasoning": ""
+            }
