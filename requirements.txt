@@ -12,3 +12,6 @@ langgraph
 
 # HTTP and API tools
 requests
+
+# Others
+python-dotenv
