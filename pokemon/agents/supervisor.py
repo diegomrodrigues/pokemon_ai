@@ -6,6 +6,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import create_react_agent
+from pydantic import BaseModel, Field
 
 from pokemon.core.config import ANTHROPIC_API_KEY
 
@@ -19,6 +20,15 @@ class AgentState(TypedDict):
     battle_result: Optional[Dict[str, str]]  # Battle result from expert
     final_answer: Optional[Dict[str, Any]]  # Final answer to return to user
 
+
+class CheckBattleInput(BaseModel):
+    question: str = Field(description="The user's question about a Pokemon battle")
+
+class CheckDataInput(BaseModel):
+    question: str = Field(description="The user's question about Pokemon data")
+
+class CheckQuestionInput(BaseModel):
+    question: str = Field(description="The user's question about Pokemon information")
 
 class SupervisorAgent:
     """
@@ -101,18 +111,10 @@ class SupervisorAgent:
             
         return False
     
-    @tool
-    def check_pokemon_question(self, question: str) -> bool:
-        """
-        Determine if the question is related to Pokemon information.
-        
-        Args:
-            question: The user's question
-            
-        Returns:
-            True if the question is asking for Pokemon information, False otherwise
-        """
-        return self._check_pokemon_question_impl(question)
+    @tool(args_schema=CheckQuestionInput)
+    def check_pokemon_question(self, input: CheckQuestionInput) -> bool:
+        """Determine if the question is related to Pokemon information."""
+        return self._check_pokemon_question_impl(input.question)
     
     def _check_pokemon_battle_impl(self, question: str) -> bool:
         """Internal implementation to check if question is about a Pokemon battle."""
@@ -144,18 +146,10 @@ class SupervisorAgent:
             
         return False
     
-    @tool
-    def check_pokemon_battle(self, question: str) -> bool:
-        """
-        Determine if the question is asking about a battle between Pokemon.
-        
-        Args:
-            question: The user's question
-            
-        Returns:
-            True if the question is about a Pokemon battle, False otherwise
-        """
-        return self._check_pokemon_battle_impl(question)
+    @tool(args_schema=CheckBattleInput)
+    def check_pokemon_battle(self, input: CheckBattleInput) -> bool:
+        """Determine if the question is about a Pokemon battle."""
+        return self._check_pokemon_battle_impl(input.question)
     
     def _check_pokemon_data_impl(self, question: str) -> bool:
         """Internal implementation to check if question is asking for Pokemon data."""
@@ -176,18 +170,10 @@ class SupervisorAgent:
                 
         return False
     
-    @tool
-    def check_pokemon_data(self, question: str) -> bool:
-        """
-        Determine if the question is asking for specific Pokemon data.
-        
-        Args:
-            question: The user's question
-            
-        Returns:
-            True if the question is asking for Pokemon data, False otherwise
-        """
-        return self._check_pokemon_data_impl(question)
+    @tool(args_schema=CheckDataInput)
+    def check_pokemon_data(self, input: CheckDataInput) -> bool:
+        """Determine if the question is asking for specific Pokemon data."""
+        return self._check_pokemon_data_impl(input.question)
     
     def _extract_pokemon_names(self, question: str) -> List[str]:
         """
