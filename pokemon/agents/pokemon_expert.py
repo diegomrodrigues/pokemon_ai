@@ -6,7 +6,6 @@ from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import tool
 
-from pokemon.agents.researcher import ResearcherAgent
 from pokemon.core.config import ANTHROPIC_API_KEY
 
 
@@ -22,8 +21,13 @@ class PokemonExpertAgent:
     Uses LangGraph for structured reasoning.
     """
     
-    def __init__(self, model: Optional[str] = "claude-3-5-haiku-20241022", researcher_agent: Optional[ResearcherAgent] = None):
+    def __init__(self, 
+        model: Optional[str] = "claude-3-5-haiku-20241022", 
+        researcher_agent: Optional['ResearcherAgent'] = None # type: ignore
+    ):
         """Initialize the Pokémon Expert Agent with tools and a model."""
+        from pokemon.agents.researcher import ResearcherAgent
+
         self.llm = ChatAnthropic(
             model=model,
             api_key=ANTHROPIC_API_KEY
@@ -74,7 +78,7 @@ class PokemonExpertAgent:
         self.agent_executor = create_react_agent(
             self.llm,
             self.tools,
-            system_message=system_message
+            state_modifier=system_message
         )
     
     @tool

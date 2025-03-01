@@ -5,7 +5,10 @@ from pokemon.agents.supervisor import SupervisorAgent
 
 # Create the specialized agents
 researcher = ResearcherAgent()
-expert = PokemonExpertAgent(researcher_agent=researcher)
+pokemon_expert_agent = PokemonExpertAgent(researcher_agent=researcher)
 
 # Create the supervisor agent
-supervisor = SupervisorAgent(researcher_agent=researcher, expert_agent=expert)
+supervisor_agent = SupervisorAgent(
+    researcher_agent=researcher, 
+    expert_agent=pokemon_expert_agent
+)

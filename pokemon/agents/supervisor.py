@@ -8,8 +8,6 @@ from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import create_react_agent
 
 from pokemon.core.config import ANTHROPIC_API_KEY
-from pokemon.agents.researcher import ResearcherAgent
-from pokemon.agents.pokemon_expert import PokemonExpertAgent
 
 
 class AgentState(TypedDict):
@@ -34,10 +32,14 @@ class SupervisorAgent:
     
     def __init__(
         self, 
-        researcher_agent: Optional[ResearcherAgent] = None,
-        expert_agent: Optional[PokemonExpertAgent] = None,
+        researcher_agent: Optional['ResearcherAgent'] = None, # type: ignore
+        expert_agent: Optional['PokemonExpertAgent'] = None, # type: ignore
         model: Optional[str] = "claude-3-5-haiku-20241022"
     ):
+        from pokemon.agents.researcher import ResearcherAgent
+        from pokemon.agents.pokemon_expert import PokemonExpertAgent
+
+
         """Initialize the Supervisor Agent with specialized agents and tools."""
         self.researcher = researcher_agent or ResearcherAgent(model=model)
         self.expert = expert_agent or PokemonExpertAgent(
@@ -73,23 +75,14 @@ class SupervisorAgent:
         self.agent_executor = create_react_agent(
             self.llm,
             self.tools,
-            system_message=system_message
+            state_modifier=system_message
         )
         
         # Create the workflow graph
         self.workflow = self._create_workflow()
     
-    @tool
-    def check_pokemon_question(self, question: str) -> bool:
-        """
-        Determine if the question is related to Pokemon information.
-        
-        Args:
-            question: The user's question
-            
-        Returns:
-            True if the question is asking for Pokemon information, False otherwise
-        """
+    def _check_pokemon_question_impl(self, question: str) -> bool:
+        """Internal implementation to check if question is about Pokemon information."""
         # Check for Pokemon-related keywords
         pokemon_keywords = [
             r'\bpokemon\b', r'\bpokedex\b', r'\bbase stats\b', r'\babilities\b',
@@ -109,16 +102,20 @@ class SupervisorAgent:
         return False
     
     @tool
-    def check_pokemon_battle(self, question: str) -> bool:
+    def check_pokemon_question(self, question: str) -> bool:
         """
-        Determine if the question is asking about a battle between Pokemon.
+        Determine if the question is related to Pokemon information.
         
         Args:
             question: The user's question
             
         Returns:
-            True if the question is about a Pokemon battle, False otherwise
+            True if the question is asking for Pokemon information, False otherwise
         """
+        return self._check_pokemon_question_impl(question)
+    
+    def _check_pokemon_battle_impl(self, question: str) -> bool:
+        """Internal implementation to check if question is about a Pokemon battle."""
         # Check for battle-related keywords
         battle_keywords = [
             r'\bbattle\b', r'\bfight\b', r'\bwin\b', r'\blose\b', r'\bvs\.?\b',
@@ -148,16 +145,20 @@ class SupervisorAgent:
         return False
     
     @tool
-    def check_pokemon_data(self, question: str) -> bool:
+    def check_pokemon_battle(self, question: str) -> bool:
         """
-        Determine if the question is asking for specific Pokemon data.
+        Determine if the question is asking about a battle between Pokemon.
         
         Args:
             question: The user's question
             
         Returns:
-            True if the question is asking for Pokemon data, False otherwise
+            True if the question is about a Pokemon battle, False otherwise
         """
+        return self._check_pokemon_battle_impl(question)
+    
+    def _check_pokemon_data_impl(self, question: str) -> bool:
+        """Internal implementation to check if question is asking for Pokemon data."""
         # Check for data retrieval patterns
         data_patterns = [
             r'what\s+(are|is)\s+the\s+(base\s+)?stats', 
@@ -174,6 +175,19 @@ class SupervisorAgent:
                 return True
                 
         return False
+    
+    @tool
+    def check_pokemon_data(self, question: str) -> bool:
+        """
+        Determine if the question is asking for specific Pokemon data.
+        
+        Args:
+            question: The user's question
+            
+        Returns:
+            True if the question is asking for Pokemon data, False otherwise
+        """
+        return self._check_pokemon_data_impl(question)
     
     def _extract_pokemon_names(self, question: str) -> List[str]:
         """
@@ -256,7 +270,7 @@ class SupervisorAgent:
         agent_response = response["messages"][-1].content
         
         # Determine the next step based on the classification
-        if self.check_pokemon_battle(question):
+        if self._check_pokemon_battle_impl(question):
             pokemon_names = self._extract_pokemon_names(question)
             if len(pokemon_names) >= 2:
                 # Store the Pokemon names in the state
@@ -265,7 +279,7 @@ class SupervisorAgent:
             else:
                 # If we couldn't extract Pokemon names, default to research
                 state["next_step"] = "pokemon_research"
-        elif self.check_pokemon_data(question):
+        elif self._check_pokemon_data_impl(question):
             pokemon_name = self._extract_pokemon_name(question)
             if pokemon_name:
                 # Store the Pokemon name in the state
@@ -274,7 +288,7 @@ class SupervisorAgent:
             else:
                 # If we couldn't extract a Pokemon name, default to research
                 state["next_step"] = "pokemon_research"
-        elif self.check_pokemon_question(question):
+        elif self._check_pokemon_question_impl(question):
             state["next_step"] = "pokemon_research"
         else:
             # This is a general knowledge question
@@ -421,7 +435,7 @@ class SupervisorAgent:
         workflow.add_node("classify_question", self._classify_question)
         workflow.add_node("direct_answer", self._direct_answer)
         workflow.add_node("pokemon_research", self._pokemon_research)
-        workflow.add_node("pokemon_data", self._pokemon_data)
+        workflow.add_node("get_pokemon_data", self._pokemon_data)
         workflow.add_node("battle_analysis", self._battle_analysis)
         
         # Set the entry point
@@ -434,7 +448,7 @@ class SupervisorAgent:
             {
                 "direct_answer": "direct_answer",
                 "pokemon_research": "pokemon_research",
-                "pokemon_data": "pokemon_data",
+                "pokemon_data": "get_pokemon_data",
                 "battle_analysis": "battle_analysis"
             }
         )
@@ -442,7 +456,7 @@ class SupervisorAgent:
         # Connect all output nodes to END
         workflow.add_edge("direct_answer", END)
         workflow.add_edge("pokemon_research", END)
-        workflow.add_edge("pokemon_data", END)
+        workflow.add_edge("get_pokemon_data", END)
         workflow.add_edge("battle_analysis", END)
         
         # Compile the workflow
