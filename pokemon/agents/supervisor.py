@@ -122,7 +122,10 @@ class SupervisorAgent:
             result = structured_llm.invoke(prompt)
             
             # Set the next step based on the classification
-            state["next_step"] = result.question_type
+            if result.question_type == "general_knowledge":
+                state["next_step"] = "direct_answer"
+            else:
+                state["next_step"] = result.question_type
             
             # Store relevant Pokemon names
             if result.question_type == "battle_analysis" and len(result.pokemon_names) >= 2:
@@ -130,9 +133,9 @@ class SupervisorAgent:
             elif result.question_type == "pokemon_data" and result.pokemon_name:
                 state["pokemon_name"] = result.pokemon_name.lower()
             
-            # If confidence is low, default to pokemon_research as fallback
+            # If confidence is low, use direct_answer not general_knowledge
             if result.confidence < 0.5:
-                state["next_step"] = "general_knowledge"
+                state["next_step"] = "direct_answer"
                 
         except Exception as e:
             state["next_step"] = "general_knowledge"

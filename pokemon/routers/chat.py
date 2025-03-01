@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from typing import Optional
 
 from pokemon.agents.supervisor import SupervisorAgent
 
@@ -10,7 +11,7 @@ class QuestionRequest(BaseModel):
 
 class AnswerResponse(BaseModel):
     answer: str
-    reasoning: str = None
+    reasoning: Optional[str] = None
 
 @router.post("/chat", response_model=AnswerResponse)
 async def chat(request: QuestionRequest):
