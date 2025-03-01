@@ -72,106 +72,10 @@ class SupervisorAgent:
         
         # Create the workflow graph
         self.workflow = self._create_workflow()
-    
-    def _check_pokemon_battle_impl(self, question: str) -> bool:
-        """Determine if the question is about a Pokemon battle."""
-        # Check for battle-related keywords
-        battle_keywords = ["battle", "fight", "versus", "vs", "win", "defeat"]
-        
-        # Check if the question mentions two Pokemon
-        has_battle_keywords = any(keyword in question.lower() for keyword in battle_keywords)
-        
-        return has_battle_keywords
-    
-    def _check_pokemon_question_impl(self, question: str) -> bool:
-        """Determine if the question is related to Pokemon information."""
-        # Check for question-related keywords
-        pokemon_keywords = ["pokemon", "pokedex", "ability", "type", "species"]
-        
-        # Check if the question is about Pokemon generally
-        has_pokemon_keywords = any(keyword in question.lower() for keyword in pokemon_keywords)
-        
-        return has_pokemon_keywords
-    
-    def _check_pokemon_data_impl(self, question: str) -> bool:
-        """Determine if the question is asking for specific Pokemon data."""
-        # Check for data-related keywords
-        data_keywords = ["stats", "height", "weight", "type", "ability", "information", "details"]
-        
-        # Check if the question is requesting specific Pokemon data
-        has_data_keywords = any(keyword in question.lower() for keyword in data_keywords)
-        
-        return has_data_keywords
-    
-    def _extract_pokemon_names(self, question: str) -> List[str]:
-        """
-        Extract Pokemon names from a battle question using the LLM with structured output.
-        
-        Args:
-            question: The user's question
             
-        Returns:
-            List of Pokemon names found in the question
-        """
-        from pydantic import BaseModel, Field
-        
-        # Define a Pydantic model for the structured output
-        class PokemonNames(BaseModel):
-            """Pokemon names extracted from a battle question."""
-            names: List[str] = Field(
-                ..., 
-                description="List of Pokemon names mentioned in the battle question. Return only valid Pokemon names."
-            )
-        
-        # Create a prompt for the LLM
-        prompt = f"""Extract the names of Pokemon being compared in this battle question.
-        If the question involves a battle or comparison between Pokemon, identify their names.
-        If you cannot identify any Pokemon names, return an empty list.
-        
-        Question: {question}"""
-        
-        try:
-            # Use structured output to get the Pokemon names
-            structured_llm = self.llm.with_structured_output(PokemonNames)
-            result = structured_llm.invoke(prompt)
-            
-            # Return the names in lowercase
-            return [name.lower() for name in result.names if name]
-        except Exception:
-            # Fallback if structured output fails
-            return []
-    
-    def _extract_pokemon_name(self, question: str) -> str:
-        """
-        Extract a single Pokemon name from a data question.
-        
-        Args:
-            question: The user's question
-            
-        Returns:
-            The extracted Pokemon name
-        """
-        # Common patterns to extract a Pokemon name
-        patterns = [
-            r'(?:about|of)\s+(\w+)(?:\s|\'|$)',  # about Pikachu, of Charizard
-            r'(?:is|are)\s+(\w+)(?:\'s|\s)',  # is Pikachu's, are Charizard
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, question, re.IGNORECASE)
-            if match:
-                return match.group(1).lower()
-        
-        # If no pattern matches, look for capitalized words that might be Pokemon names
-        capitalized_words = re.findall(r'\b([A-Z][a-z]+)\b', question)
-        if capitalized_words:
-            return capitalized_words[0].lower()
-            
-        return ""
-    
     def _classify_question(self, state: AgentState) -> AgentState:
         """
-        Classify the type of question and determine the next step.
+        Classify the type of question and determine the next step using structured output.
         
         Args:
             state: The current state of the workflow
@@ -179,41 +83,57 @@ class SupervisorAgent:
         Returns:
             Updated state with the next_step field set
         """
+        from pydantic import BaseModel, Field
+        
+        # Define a Pydantic model for the structured output
+        class QuestionClassification(BaseModel):
+            """Classification of a Pokemon-related question."""
+            question_type: Literal["general_knowledge", "pokemon_research", "pokemon_data", "battle_analysis"] = Field(
+                ..., 
+                description="The type of question being asked")
+            pokemon_names: List[str] = Field(
+                default_factory=list, 
+                description="Names of Pokemon mentioned in battle questions (2+ for battles)")
+            pokemon_name: str = Field(
+                default="", 
+                description="Name of the Pokemon for data questions (single Pokemon)")
+            confidence: float = Field(
+                default=1.0, 
+                description="Confidence in the classification (0.0 to 1.0)")
+        
         # Get the user's question
         question = state["question"]
         
-        # Call the agent executor to classify the question
-        response = self.agent_executor.invoke({
-            "messages": [HumanMessage(content=f"Classify this question: {question}")]
-        })
+        # Create a prompt for classification
+        prompt = f"""Classify this Pokemon-related question into one of these categories:
+        1. "general_knowledge" - General questions that don't need special Pokemon data
+        2. "pokemon_research" - Questions about Pokemon that need research but not specific data lookup
+        3. "pokemon_data" - Questions about specific Pokemon's stats, abilities, etc. (extract the Pokemon name)
+        4. "battle_analysis" - Questions about which Pokemon would win in a battle (extract both Pokemon names)
+
+        Question: {question}"""
         
-        # Extract the agent's answer
-        agent_response = response["messages"][-1].content
-        
-        # Determine the next step based on the classification
-        if self._check_pokemon_battle_impl(question):
-            pokemon_names = self._extract_pokemon_names(question)
-            if len(pokemon_names) >= 2:
-                # Store the Pokemon names in the state
-                state["pokemon_names"] = pokemon_names
-                state["next_step"] = "battle_analysis"
-            else:
-                # If we couldn't extract Pokemon names, default to research
+        try:
+            # Use structured output to classify the question
+            structured_llm = self.llm.with_structured_output(QuestionClassification)
+            result = structured_llm.invoke(prompt)
+            
+            # Set the next step based on the classification
+            state["next_step"] = result.question_type
+            
+            # Store relevant Pokemon names
+            if result.question_type == "battle_analysis" and len(result.pokemon_names) >= 2:
+                state["pokemon_names"] = [name.lower() for name in result.pokemon_names]
+            elif result.question_type == "pokemon_data" and result.pokemon_name:
+                state["pokemon_name"] = result.pokemon_name.lower()
+            
+            # If confidence is low, default to pokemon_research as fallback
+            if result.confidence < 0.7:
                 state["next_step"] = "pokemon_research"
-        elif self._check_pokemon_data_impl(question):
-            pokemon_name = self._extract_pokemon_name(question)
-            if pokemon_name:
-                # Store the Pokemon name in the state
-                state["pokemon_name"] = pokemon_name
-                state["next_step"] = "pokemon_data"
-            else:
-                # If we couldn't extract a Pokemon name, default to research
-                state["next_step"] = "pokemon_research"
-        elif self._check_pokemon_question_impl(question):
+                
+        except Exception:
+            # Fallback if structured output fails - use pokemon_research as the safest option
             state["next_step"] = "pokemon_research"
-        else:
-            # This is a general knowledge question
-            state["next_step"] = "direct_answer"
         
         return state
     
@@ -282,7 +202,8 @@ class SupervisorAgent:
             return state
         
         # Get the Pokemon data
-        pokemon_data = self.researcher.get_pokemon_data(pokemon_name)
+        from pokemon.agents.researcher import get_pokemon_data
+        pokemon_data = get_pokemon_data.invoke(pokemon_name)
         
         # Check if we got a valid response
         if isinstance(pokemon_data, dict):
