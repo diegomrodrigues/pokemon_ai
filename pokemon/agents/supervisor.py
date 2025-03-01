@@ -16,6 +16,8 @@ class AgentState(TypedDict):
     question: str  # Original user question
     next_step: Optional[str]  # Next step to take (if any)
     pokemon_data: Optional[Dict[str, Any]]  # Data from researcher
+    pokemon_names: Optional[List[str]]
+    pokemon_name: Optional[str]
     battle_result: Optional[Dict[str, str]]  # Battle result from expert
     final_answer: Optional[Dict[str, Any]]  # Final answer to return to user
 
@@ -132,7 +134,7 @@ class SupervisorAgent:
             if result.confidence < 0.7:
                 state["next_step"] = "pokemon_research"
                 
-        except Exception:
+        except Exception as e:
             # Fallback if structured output fails - use pokemon_research as the safest option
             state["next_step"] = "pokemon_research"
         
@@ -229,12 +231,7 @@ class SupervisorAgent:
         """
         # Get the Pokemon names from the state
         pokemon_names = state.get("pokemon_names", [])
-        
-        # If we don't have two Pokemon names, use the question
-        if len(pokemon_names) < 2:
-            state = self._pokemon_research(state)
-            return state
-        
+                
         # Get the battle analysis
         battle_result = self.expert.determine_winner(pokemon_names[0], pokemon_names[1])
         
@@ -321,6 +318,8 @@ class SupervisorAgent:
             "question": question,
             "next_step": None,
             "pokemon_data": None,
+            "pokemon_names": None,
+            "pokemon_name": None,
             "battle_result": None,
             "final_answer": None
         }

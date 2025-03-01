@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from pokemon.agents.supervisor import SupervisorAgent
-from pokemon.main import supervisor_agent  # instance created in main.py
 
 router = APIRouter()
 
@@ -14,8 +13,9 @@ class AnswerResponse(BaseModel):
     reasoning: str = None
 
 @router.post("/chat", response_model=AnswerResponse)
-async def chat(request: QuestionRequest, supervisor: SupervisorAgent = Depends(supervisor_agent)):
+async def chat(request: QuestionRequest):
     """Process a user question using the supervisor agent."""
+    supervisor = SupervisorAgent()
     result = supervisor.process_question(request.question)
     
     # Extract answer and reasoning
