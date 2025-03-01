@@ -105,7 +105,7 @@ class SupervisorAgent:
     
     def _extract_pokemon_names(self, question: str) -> List[str]:
         """
-        Extract Pokemon names from a battle question.
+        Extract Pokemon names from a battle question using the LLM with structured output.
         
         Args:
             question: The user's question
@@ -113,26 +113,33 @@ class SupervisorAgent:
         Returns:
             List of Pokemon names found in the question
         """
-        # Common patterns to extract Pokemon names from battle questions
-        patterns = [
-            r'(?:between|of)\s+(\w+)\s+(?:and|vs\.?|versus)\s+(\w+)',  # between X and Y
-            r'(\w+)\s+(?:vs\.?|versus)\s+(\w+)',  # X vs Y
-            r'(?:would|will|could)\s+(\w+)\s+(?:beat|defeat|win against)\s+(\w+)',  # Would X beat Y
-            r'(?:would|will|could)\s+(\w+)\s+(?:or)\s+(\w+)\s+(?:win)',  # Would X or Y win
-        ]
+        from pydantic import BaseModel, Field
         
-        for pattern in patterns:
-            match = re.search(pattern, question, re.IGNORECASE)
-            if match:
-                return [match.group(1).lower(), match.group(2).lower()]
+        # Define a Pydantic model for the structured output
+        class PokemonNames(BaseModel):
+            """Pokemon names extracted from a battle question."""
+            names: List[str] = Field(
+                ..., 
+                description="List of Pokemon names mentioned in the battle question. Return only valid Pokemon names."
+            )
         
-        # If no pattern matches, look for capitalized words that might be Pokemon names
-        # This is a simple heuristic and might not be accurate
-        capitalized_words = re.findall(r'\b([A-Z][a-z]+)\b', question)
-        if len(capitalized_words) >= 2:
-            return [capitalized_words[0].lower(), capitalized_words[1].lower()]
+        # Create a prompt for the LLM
+        prompt = f"""Extract the names of Pokemon being compared in this battle question.
+        If the question involves a battle or comparison between Pokemon, identify their names.
+        If you cannot identify any Pokemon names, return an empty list.
+        
+        Question: {question}"""
+        
+        try:
+            # Use structured output to get the Pokemon names
+            structured_llm = self.llm.with_structured_output(PokemonNames)
+            result = structured_llm.invoke(prompt)
             
-        return []
+            # Return the names in lowercase
+            return [name.lower() for name in result.names if name]
+        except Exception:
+            # Fallback if structured output fails
+            return []
     
     def _extract_pokemon_name(self, question: str) -> str:
         """
@@ -384,7 +391,7 @@ class SupervisorAgent:
             question: The user's question
             
         Returns:
-            A dictionary containing the answer
+            A dictionary containing the answer and reasoning
         """
         # Initialize the state
         initial_state: AgentState = {
@@ -399,5 +406,25 @@ class SupervisorAgent:
         # Run the workflow
         final_state = self.workflow.invoke(initial_state)
         
-        # Return the final answer
-        return final_state["final_answer"]
+        # Get the final answer
+        result = final_state["final_answer"]
+        
+        # Format the response consistently
+        if isinstance(result, dict):
+            # For battle analysis
+            if "winner" in result and "reasoning" in result:
+                return {
+                    "answer": f"{result['winner']} would win the battle.",
+                    "reasoning": result["reasoning"]
+                }
+            # For direct answers that already have the right format
+            elif "answer" in result:
+                return result
+            # For pokemon data responses
+            else:
+                answer = result.get("answer", str(result))
+                reasoning = None
+                return {"answer": answer, "reasoning": reasoning}
+        else:
+            # Handle case where result is a string or other type
+            return {"answer": str(result), "reasoning": None}

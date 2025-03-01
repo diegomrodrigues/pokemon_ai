@@ -160,8 +160,8 @@ def compare_pokemon_data(pokemon1_name: str, pokemon2_name: str) -> Dict[str, An
     from pokemon.agents.researcher import get_pokemon_data
 
     # Get data for both Pokémon (using the imported researcher function)
-    pokemon1_data = get_pokemon_data(pokemon1_name)
-    pokemon2_data = get_pokemon_data(pokemon2_name)
+    pokemon1_data = get_pokemon_data.invoke(pokemon1_name)
+    pokemon2_data = get_pokemon_data.invoke(pokemon2_name)
     
     # Check if either Pokémon wasn't found
     if isinstance(pokemon1_data, str) and "not found" in pokemon1_data:
@@ -174,12 +174,12 @@ def compare_pokemon_data(pokemon1_name: str, pokemon2_name: str) -> Dict[str, An
     if "types" in pokemon1_data and "types" in pokemon2_data:
         # Pokémon 1's attacks against Pokémon 2
         for attack_type in pokemon1_data["types"]:
-            effect = get_type_effectiveness(attack_type, pokemon2_data["types"])
+            effect = get_type_effectiveness.invoke(attack_type, pokemon2_data["types"])
             type_effectiveness[f"{pokemon1_data['name']}_{attack_type}_vs_{pokemon2_data['name']}"] = effect
         
         # Pokémon 2's attacks against Pokémon 1
         for attack_type in pokemon2_data["types"]:
-            effect = get_type_effectiveness(attack_type, pokemon1_data["types"])
+            effect = get_type_effectiveness.invoke(attack_type, pokemon1_data["types"])
             type_effectiveness[f"{pokemon2_data['name']}_{attack_type}_vs_{pokemon1_data['name']}"] = effect
     
     # Compare stats

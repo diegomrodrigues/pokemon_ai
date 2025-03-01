@@ -79,7 +79,7 @@ def compare_pokemon(pokemon_names: List[str]) -> Dict[str, Any]:
     results = {}
     
     for name in pokemon_names:
-        pokemon_data = get_pokemon_data(name)
+        pokemon_data = get_pokemon_data.invoke(name)
         if isinstance(pokemon_data, dict):
             results[pokemon_data["name"]] = pokemon_data
         else:
