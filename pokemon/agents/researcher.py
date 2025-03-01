@@ -112,7 +112,8 @@ class ResearcherAgent:
         self.agent_executor = create_react_agent(
             self.llm,
             self.tools,
-            prompt=system_message
+            prompt=system_message,
+            name="Researcher Agent"
         )
     
     def query(self, question: str) -> Dict[str, Any]:

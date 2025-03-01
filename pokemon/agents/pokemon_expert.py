@@ -254,7 +254,8 @@ class PokemonExpertAgent:
         self.agent_executor = create_react_agent(
             self.llm,
             self.tools,
-            state_modifier=system_message
+            state_modifier=system_message,
+            name="Pokemon Expert"
         )
 
     def determine_winner(self, pokemon1: str, pokemon2: str) -> Dict[str, str]:
