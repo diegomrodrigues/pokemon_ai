@@ -131,12 +131,11 @@ class SupervisorAgent:
                 state["pokemon_name"] = result.pokemon_name.lower()
             
             # If confidence is low, default to pokemon_research as fallback
-            if result.confidence < 0.7:
-                state["next_step"] = "pokemon_research"
+            if result.confidence < 0.5:
+                state["next_step"] = "general_knowledge"
                 
         except Exception as e:
-            # Fallback if structured output fails - use pokemon_research as the safest option
-            state["next_step"] = "pokemon_research"
+            state["next_step"] = "general_knowledge"
         
         return state
     

@@ -14,6 +14,6 @@ async def battle(pokemon1: str, pokemon2: str):
     # Enable tracing for this specific endpoint with a dedicated project name
     with tracing_v2_enabled(project_name="pokemon-battles"):
         expert = PokemonExpertAgent()
-        result_text = await expert.determine_winner(pokemon1, pokemon2)
+        result = expert.determine_winner(pokemon1, pokemon2)
     
-    return {"result": result_text}
+    return result
