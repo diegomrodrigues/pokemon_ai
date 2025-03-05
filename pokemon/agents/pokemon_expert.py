@@ -91,7 +91,7 @@ def get_type_effectiveness(attacking_type: str, defending_types: List[str]) -> D
         effectiveness = "not very effective"
     elif multiplier == 0.0:
         effectiveness = "no effect"
-    
+
     return {
         "attacking_type": attacking_type.capitalize(),
         "defending_types": [dt.capitalize() for dt in defending_types],
@@ -174,21 +174,27 @@ def compare_pokemon_data(pokemon1_name: str, pokemon2_name: str) -> Dict[str, An
     if "types" in pokemon1_data and "types" in pokemon2_data:
         # Pokémon 1's attacks against Pokémon 2
         for attack_type in pokemon1_data["types"]:
-            effect = get_type_effectiveness.invoke(attack_type, pokemon2_data["types"])
+            effect = get_type_effectiveness.invoke({
+                "attacking_type": attack_type, 
+                "defending_types": pokemon2_data["types"]
+            })
             type_effectiveness[f"{pokemon1_data['name']}_{attack_type}_vs_{pokemon2_data['name']}"] = effect
         
         # Pokémon 2's attacks against Pokémon 1
         for attack_type in pokemon2_data["types"]:
-            effect = get_type_effectiveness.invoke(attack_type, pokemon1_data["types"])
+            effect = get_type_effectiveness.invoke({
+                "attacking_type": attack_type, 
+                "defending_types": pokemon1_data["types"]
+            })
             type_effectiveness[f"{pokemon2_data['name']}_{attack_type}_vs_{pokemon1_data['name']}"] = effect
     
-    print(pokemon1_data)
-    print(pokemon2_data)
-
     # Compare stats
     stats_comparison = {}
     if "stats" in pokemon1_data and "stats" in pokemon2_data:
-        stats_comparison = analyze_stats_comparison(pokemon1_data["stats"], pokemon2_data["stats"])
+        stats_comparison = analyze_stats_comparison.invoke({
+            "stats1": pokemon1_data["stats"], 
+            "stats2": pokemon2_data["stats"]
+        })
     
     return {
         "pokemon1": pokemon1_data,
