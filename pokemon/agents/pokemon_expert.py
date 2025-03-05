@@ -182,6 +182,9 @@ def compare_pokemon_data(pokemon1_name: str, pokemon2_name: str) -> Dict[str, An
             effect = get_type_effectiveness.invoke(attack_type, pokemon1_data["types"])
             type_effectiveness[f"{pokemon2_data['name']}_{attack_type}_vs_{pokemon1_data['name']}"] = effect
     
+    print(pokemon1_data)
+    print(pokemon2_data)
+
     # Compare stats
     stats_comparison = {}
     if "stats" in pokemon1_data and "stats" in pokemon2_data:
