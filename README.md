@@ -56,15 +56,14 @@ The system comprises three main agents:
 
 ```mermaid
 graph TD
-    A[User] -->|Question| B(Supervisor Agent);
-    B -- "General Knowledge" -->|Direct Answer| B;
-    B -- "Pokémon Data" --> C(Researcher Agent);
-    B -- "Pokémon Research" --> C;
-    B -- "Battle Analysis" --> D(Pokémon Expert Agent);
-    C -->|Pokémon Data| B;
-    D -->|Battle Result| B;
-    B -->|Answer| A;
-    C -->|Data| E(PokéAPI);
+    A[User] -->|Question| B(Supervisor Agent)
+    B -->|Direct Answer| A
+    B -->|Pokémon Query| C(Researcher Agent)
+    B -->|Battle Analysis Request| D(Pokémon Expert Agent)
+    C -->|Pokémon Data| B
+    D -->|Battle Result| B
+    C -->|Data Request| E(PokéAPI)
+    E -->|Response Data| C
 
 ```
 
